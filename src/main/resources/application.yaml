@@ -1,0 +1,93 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: ${APP_NAME:Auth Service}
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:mysql://${MYSQL_DB_HOST}:${MYSQL_DB_PORT}/${MYSQL_DB_DATABASE}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_DB_USERNAME:root}
+    password: ${MYSQL_DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+    locations: "classpath:db/migration"
+    baseline-on-migrate: true
+    baseline-version: "0"
+    validate-on-migrate: true
+    lock-retry-count: 10
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:http://localhost:8080}
+      audiences:
+        - ${JWT_AUDIENCES[0]:order-service}
+        - ${JWT_AUDIENCES[1]:payment-service}
+      expiry: ${JWT_TTL:http://localhost:900} # 15 minutes (in seconds) for Access Tokens
+      refresh-expiry: ${JWT_REFRESH_TTL:604800} # 7 days (in seconds) for Refresh Tokens
+      keys:
+        - key-id: ${JWT_ACTIVE_KEY_ID:auth-key-2026-v2}
+          public-key: ${JWT_ACTIVE_PUBLIC_KEY:classpath:certs/public_key_v2.pem}
+          private-key: ${JWT_ACTIVE_PRIVATE_KEY:classpath:certs/private_key_v2.pem}
+          active: true
+
+        - key-id: ${JWT_V1_KEY_ID:auth-key-2026}
+          public-key: ${JWT_V1_PUBLIC_KEY:classpath:certs/public_key.pem}
+          private-key: ${JWT_V1_PRIVATE_KEY:classpath:certs/private_key_pkcs8.pem}
+          active: false
+    cookie:
+      refresh-token:
+        name: ${SESSION_REFRESH_TOKEN_COOKIE:refresh_token}
+        path: ${SESSION_REFRESH_TOKEN_PATH:/api}
+        secure: ${SESSION_REFRESH_TOKEN_SECURE_COOKIE:false}
+        http-only: ${SESSION_REFRESH_TOKEN_HTTP_ONLY:true}
+        same-site: ${SESSION_REFRESH_TOKEN_SAME_SITE:lax}
+        max-age-seconds: ${SESSION_REFRESH_TOKEN_LIFETIME:604800}
+  jobs:
+    refresh-token-cleanup:
+      cron: ${CLEANUP_REFRESH_TOKEN_CRON:0 0 3 * * *}
+      lock-at-most-for: "PT10M"
+      lock-at-least-for: "PT1M"
+
+  seed:
+    enabled: false
+    row-count: 180000
+    batch-size: 500
